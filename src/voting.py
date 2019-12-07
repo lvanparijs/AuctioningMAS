@@ -113,7 +113,7 @@ def bidding_strategy(start_price):
             v[i] = ((buyer_market_price[i]-buyer_paid[i])+e*buyer_paid[i])
     return bidding_factors*start_price-v
 
-def update_bidding_factors(bidding_factors, bids, market_price, out, winner_id):
+def update_bidding_factors(bidding_factors, bids, market_price, out, winner_id): #Updates the bidding factors
     ids = numpy.arange(0, k)
     if len(out) > 0:
         for o in out:
