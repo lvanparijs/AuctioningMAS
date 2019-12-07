@@ -43,7 +43,6 @@ def vickrey_auction():
                 cur_seller_id = sellers_id[kk] #Gets the current seller ID, random due to shuffle function before each round
                 start_price = sellers_price[cur_seller_id] #Get the starting price of the current seller
 
-                #TODO: Place bids, see Bidding Strategy for this
                 bids = bidding_strategy(start_price)
 
                 bids[out[:]] = -numpy.inf #If they have already won an auction, set bid to 0 so they dont participate
