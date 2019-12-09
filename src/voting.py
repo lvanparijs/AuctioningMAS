@@ -1,12 +1,13 @@
 import numpy
+import matplotlib.pyplot as plt
 
 #INPUTS
-k = 5 #number of sellers
-n = k+1 #number of buyers
-r = 5 #number of auction rounds
+k = 3 #number of sellers
+n = k+2 #number of buyers
+r = 50 #number of auction rounds
 
-s_max = 5 #universal maximum price
-e = 0.2 #penalty factor
+s_max = 1 #universal maximum price
+e = 0.9 #penalty factor
 
 lvl_commitement = True #Flag whether leveled commitment is used, otherwise its pure
 
@@ -26,6 +27,8 @@ bidding_factors = numpy.random.uniform(1.01,2,n) #Bidding factors
 bid_inc_factors = numpy.random.uniform(1.01,2,n) #Bid increase factors, randomly generated
 bid_dec_factors = numpy.random.uniform(0.01,1,n) #Bid decrease factors, randomly generated
 
+profits = numpy.zeros((n,r))
+
 
 def vickrey_auction():
     if n > k: #more buyers than sellers necessary
@@ -42,11 +45,14 @@ def vickrey_auction():
             for kk in range(k): #Each seller has one auctions per round
                 cur_seller_id = sellers_id[kk] #Gets the current seller ID, random due to shuffle function before each round
                 start_price = sellers_price[cur_seller_id] #Get the starting price of the current seller
-
                 bids = bidding_strategy(start_price)
 
-                bids[out[:]] = -numpy.inf #If they have already won an auction, set bid to 0 so they dont participate
-                market_price = numpy.average(bids[bids>0]) #Only averages the actual bids, not the -inf
+                bids[out[:]] = -1000 #If they have already won an auction, set bid to 0 so they dont participate
+                print(bids)
+                print(bids[bids>=0])
+                valid_bids = bids[bids>=0]
+               # if len(valid_bids) > 0:
+                market_price = numpy.average(bids[bids>=0]) #Only averages the actual bids, not the -inf
 
                 print("AUCTION "+str(kk)+", organised by id: "+str(cur_seller_id))
                 print("Starting price: "+str(start_price))
@@ -57,7 +63,7 @@ def vickrey_auction():
                 win_id, win_price = find_nearest_less_than(market_price,bids) #Get the highest bid lower than the market value, the buyers that bid higher than market price wont go through with it since it is irrational
                 #Since the winner only needs to pay the second highest price the win price needs to be adapted
                 _, win_price2 = find_nearest_less_than(win_price,bids) #Find second highest price
-                if win_price2 == -numpy.inf: #means there is only one valid bid below market value
+                if win_price2 == -1000: #means there is only one valid bid below market value
                     win_price = (win_price+start_price)/2 #Average bid and starting price
                 else:
                     win_price = win_price2 #Set second highest price as winning price
@@ -71,7 +77,7 @@ def vickrey_auction():
                         print("WON PREVIOUS AUCTION!")
                         penalty_fee = e*buyer_paid[win_id] #Calculate penalty fee
                         seller_profit[int(buy_from[win_id])] -= (buyer_paid[win_id]-penalty_fee) #Seller refunds buyer, but keeps fee
-                        buyer_profit[win_id] = -penalty_fee #Pay fee to seller
+                        buyer_profit[win_id] -= penalty_fee #Pay fee to seller
                         buy_from[win_id] = cur_seller_id #Change buy from to new auction
 
                     seller_profit[cur_seller_id] += win_price
@@ -79,6 +85,7 @@ def vickrey_auction():
                     buyer_profit[win_id] += market_price - win_price
                     buyer_market_price[win_id] = market_price
                     buy_from[win_id] = cur_seller_id
+
                 else: #Pure Auction, remove the winner from bidders
                     print("PURE AUCTIONING")
                     out += [win_id] #Add winner to out list
@@ -87,6 +94,8 @@ def vickrey_auction():
                     buyer_profit[win_id] += market_price - win_price
                     buyer_market_price[win_id] = market_price
                     buy_from[win_id] = cur_seller_id
+                for i in range(n):
+                    profits[i, rr] = buyer_profit[i]
 
                 update_bidding_factors(bidding_factors,bids,market_price,out,win_id)
 
@@ -97,12 +106,13 @@ def vickrey_auction():
     else:
         print("INSUFFICIENT BUYERS")
         print("The number of buyers(n) must always be greater than number of sellers(k)")
+    plot_lines(profits)
 
 def reset():
     sellers_price = numpy.random.uniform(0, s_max, k)  # Random starting price for sellers
     buyer_paid = numpy.zeros(n)  # How much each buyer paid
     buyer_market_price = numpy.zeros(n)
-    bidding_factors = numpy.random.uniform(1.01, 2, n)  # Bidding factors
+    #bidding_factors = numpy.random.uniform(1.01, 2, n)  # Bidding factors, UNCOMMENT IF YOU WANT THE BIDDING FACTOR THE BE RESET AFTER EACH ROUND
     bid_inc_factors = numpy.random.uniform(1.01, 2, n)  # Bid increase factors, randomly generated
     bid_dec_factors = numpy.random.uniform(0.01, 1, n)  # Bid decrease factors, randomly generated
 
@@ -111,25 +121,33 @@ def bidding_strategy(start_price):
     for i in range(n):
         if buy_from[i] != -1: #If this buyer has bought something before
             v[i] = ((buyer_market_price[i]-buyer_paid[i])+e*buyer_paid[i])
-    return bidding_factors*start_price-v
+    res = bidding_factors*start_price-v
+    res[res<0]=0
+    return res
 
 def update_bidding_factors(bidding_factors, bids, market_price, out, winner_id): #Updates the bidding factors
     ids = numpy.arange(0, k)
-    if len(out) > 0:
-        for o in out:
-            numpy.delete(ids,o)
-    for id in ids:
-        if id == winner_id or bids[id] >= market_price: #If this bidder won the last auction
+    if len(out) > 0: #if there have not been any bids yet, this is not neccesary
+        #tmp_ids = ids.copy()
+        numpy.delete(ids,out)
+    for id in ids:#update bidding factors
+        if id == winner_id or bids[id] >= market_price: #If this bidder won the last auction or if it bid too much
             bidding_factors[id] *= bid_dec_factors[id]
         else:
             bidding_factors[id] *= bid_inc_factors[id]
 
 def find_nearest_less_than(search_val, input_data):
     diff = input_data - search_val
-    diff[diff>0] = -numpy.inf
+    diff[diff>0] = -1000
     idx = diff.argmax()
     return idx, input_data[idx]
 
+def plot_lines(lines):
+    plt.figure()
+    rounds = numpy.linspace(0, r, r)
+    for i in range(lines.shape[0]):
+        plt.plot(rounds,lines[i,:])
+    plt.show()
 
 #b = [-1,2,2,2,-1,-1,-1,-1]
 #print(numpy.average(b[b>0]))
