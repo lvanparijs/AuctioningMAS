@@ -10,9 +10,9 @@ n = k+1 #number of buyers, n must always be greater than k
 r = 50 #number of auction rounds
 
 s_max = 1. #universal maximum price
-e = 0.3 #penalty factor
+e = 0.6 #penalty factor
 
-lvl_commitement = False #Flag whether leveled commitment is used, otherwise its pure
+lvl_commitement = True #Flag whether leveled commitment is used, otherwise its pure
 
 #OUTPUTS
 market_price = 0 #Market price
@@ -32,6 +32,7 @@ bid_dec_factors = numpy.random.uniform(0.01,1,n) #Bid decrease factors, randomly
 
 profits = numpy.zeros((n,r)) #Profits, for plotting purposes
 bid_fac = numpy.zeros((n,r)) #Bidding factors, also for plotting
+mps = numpy.zeros(r)
 
 def vickrey_auction():
     if n > k: #more buyers than sellers necessary
@@ -119,7 +120,7 @@ def vickrey_auction():
                     buyer_market_price[win_id] = market_price
                     buy_from[win_id] = cur_seller_id
                     out += [win_id]  # Add winner to out list
-
+                mps[rr] = market_price
 
                 print("SELLER PROFITS: " + str(sellers_profit))
                 print("BUYER PROFITS: " + str(buyer_profit))
@@ -128,7 +129,8 @@ def vickrey_auction():
     else:
         print("INSUFFICIENT BUYERS")
         print("The number of buyers(n) must always be greater than number of sellers(k)")
-    plot_lines(profits)
+    #plot_lines(profits)
+    plot_market_price(mps)
     #plot_lines(bid_fac)
 
 def reset():
@@ -168,6 +170,13 @@ def find_nearest_less_than(search_val, input_data):
     diff[diff>=0] = -1
     idx = diff.argmax()
     return idx, input_data[idx]
+
+def plot_market_price(mp):
+    plt.figure()
+    plt.title("Market Price over "+str(r)+" rounds.")
+    rounds = numpy.linspace(0, r, r)
+    plt.plot(rounds, mp[:])
+    plt.show()
 
 def plot_lines(factors):
     plt.figure()
