@@ -181,7 +181,19 @@ def plot_lines(factors, lvl_commitment, k, n, r, e):
 
 
 print("k = num of Sellers, n = num of Buyers, r = num of Rounds, smax = Max starting price, e = penalty factor, lvl = True/False use leveled commitment")
-print("[int int int float float bool  // Example input: 3 4 100 1. 0.4 True ")
-var = input("Please enter input: k n r smax e lvl \n").split(' ')
+print("Input the variables one by one, fill in variable and press ENTER")
+print("int, int, int, float, float, bool // Example input: 5 [ENTER] 4 [ENTER] 100 [ENTER] 1. [ENTER] 0.4 [ENTER] True [ENTER] ")
+print("Please enter input in order: k, n, r, smax, e, lvl \n")
+vars = []
+for i in range(0,6):
+    var = input()
+    if i < 3:
+        vars += [int(var)]
+    elif i < 5:
+        vars += [float(var)]
+    else:
+        vars += [bool(var)]
+#.split(' ')
+print(vars)
 
-vickrey_auction(int(var[0]),int(var[1]),int(var[2]),float(var[3]),float(var[4]),bool(var[5]))
+vickrey_auction(vars[0],vars[1],vars[2],vars[3],vars[4],vars[5])
