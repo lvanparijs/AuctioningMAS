@@ -4,43 +4,33 @@ import matplotlib.pyplot as plt
 #DESCRIPTION
 #This is a simulation of a modified second-price sealed-bid (Vickrey) auction
 
-#INPUTS
-k = 4 #number of sellers
-n = k+1 #number of buyers, n must always be greater than k
-r = 50 #number of auction rounds
+def vickrey_auction(k,n,r,s_max,e,lvl_commitment):
+    # OUTPUTS
+    market_price = 0  # Market price
 
-s_max = 1. #universal maximum price
-e = 0.6 #penalty factor
+    buyer_profit = numpy.zeros(n)  # Profit of each buyer
+    buyer_paid = numpy.zeros(n)  # How much each buyer paid
+    buyer_market_price = numpy.zeros(n)
+    buy_from = -numpy.ones(n)  # Registers from which seller the buyer bought its item
 
-lvl_commitement = True #Flag whether leveled commitment is used, otherwise its pure
+    sellers_profit = numpy.zeros(k)  # Profits for each seller
+    sellers_price = numpy.random.uniform(0, s_max, k)  # Random starting price for sellers
+    sellers_id = numpy.arange(0, k)  # Ids for each seller, used to randomise the seller order each round
 
-#OUTPUTS
-market_price = 0 #Market price
+    bidding_factors = numpy.random.uniform(1.01, 2, n)  # Bidding , locked between 1 and 2
+    bid_inc_factors = numpy.random.uniform(1.01, 2, n)  # Bid increase factors, randomly generated
+    bid_dec_factors = numpy.random.uniform(0.01, 1, n)  # Bid decrease factors, randomly generated
 
-buyer_profit = numpy.zeros(n) #Profit of each buyer
-buyer_paid = numpy.zeros(n) #How much each buyer paid
-buyer_market_price = numpy.zeros(n)
-buy_from = -numpy.ones(n) #Registers from which seller the buyer bought its item
+    profits = numpy.zeros((n, r))  # Profits, for plotting purposes
+    bid_fac = numpy.zeros((n, r))  # Bidding factors, also for plotting
+    mps = numpy.zeros(r)
 
-sellers_profit = numpy.zeros(k) #Profits for each seller
-sellers_price = numpy.random.uniform(0,s_max,k) #Random starting price for sellers
-sellers_id = numpy.arange(0,k) #Ids for each seller, used to randomise the seller order each round
-
-bidding_factors = numpy.random.uniform(1.01,2,n) #Bidding , locked between 1 and 2
-bid_inc_factors = numpy.random.uniform(1.01,2,n) #Bid increase factors, randomly generated
-bid_dec_factors = numpy.random.uniform(0.01,1,n) #Bid decrease factors, randomly generated
-
-profits = numpy.zeros((n,r)) #Profits, for plotting purposes
-bid_fac = numpy.zeros((n,r)) #Bidding factors, also for plotting
-mps = numpy.zeros(r)
-
-def vickrey_auction():
     if n > k: #more buyers than sellers necessary
         for rr in range(r): #Amount of rounds
             sellers_price = numpy.random.uniform(0, s_max/2, k) #Generate the starting prices of each seller randomly
             numpy.random.shuffle(sellers_id) #Ensures random order at every round
             out = [] #List of which buyers are not allowed to bid anymore, used for PURE auctioning
-            reset() #Resets some variables between auctions
+            reset(s_max,k,n) #Resets some variables between auctions
 
             print("===============")
             print("ROUND "+str(rr)) #Printing stuff
@@ -49,7 +39,7 @@ def vickrey_auction():
             for kk in range(k): #Each seller has one auctions per round
                 cur_seller_id = sellers_id[kk] #Gets the current seller ID, random due to shuffle function before each round
                 start_price = sellers_price[cur_seller_id] #Get the starting price of the current seller
-                bids = bidding_strategy(start_price, lvl_commitement) #generate bids
+                bids = bidding_strategy(start_price, lvl_commitment, n, e, buy_from, buyer_market_price, buyer_paid, bidding_factors) #generate bids
                 if len(out) > 0:
                     bids[out[:]] = -1 #If they have already won an auction, set bid to -1 so they dont participate
                     market_price = numpy.average(bids[bids >= 0])  # Only averages the actual bids, not the -inf
@@ -80,9 +70,9 @@ def vickrey_auction():
 
                 profits[:,rr] = buyer_profit[:] #Adding profits after rr rounds to the table
                 bid_fac[:,rr] = bidding_factors[:] #Adding bidding factors after rr rounds to the stable
-                update_bidding_factors(bidding_factors, bids, market_price, out, win_id)
+                update_bidding_factors(bidding_factors, bids, market_price, out, win_id, n, bid_dec_factors, bid_inc_factors)
 
-                if lvl_commitement: #Leveled Commitment, dont remove the winner
+                if lvl_commitment: #Leveled Commitment, dont remove the winner
                     print("LEVELLED COMMITMENT AUCTIONING")
                     if buy_from[win_id] != -1: #If a buyer previously won an auction already
                         penalty_fee = 0
@@ -129,11 +119,11 @@ def vickrey_auction():
     else:
         print("INSUFFICIENT BUYERS")
         print("The number of buyers(n) must always be greater than number of sellers(k)")
-    #plot_lines(profits)
-    plot_market_price(mps)
-    #plot_lines(bid_fac)
+    plot_lines(profits,lvl_commitment,k,n,r,e)
+    plot_market_price(mps,r)
+    plot_lines(bid_fac,lvl_commitment,k,n,r,e)
 
-def reset():
+def reset(s_max, k, n):
     sellers_price = numpy.random.uniform(0, s_max, k)  # Random starting price for sellers
     buyer_paid = numpy.zeros(n)  # How much each buyer paid
     buyer_market_price = numpy.zeros(n)
@@ -141,7 +131,7 @@ def reset():
     #bid_inc_factors = numpy.random.uniform(1.01, 2, n)  # Bid increase factors, randomly generated
     #bid_dec_factors = numpy.random.uniform(0.01, 1, n)  # Bid decrease factors, randomly generated
 
-def bidding_strategy(start_price, lvl_commitment):
+def bidding_strategy(start_price, lvl_commitment, n, e, buy_from, buyer_market_price, buyer_paid, bidding_factors):
     if lvl_commitment:
         v = numpy.zeros(n)
         for i in range(n):
@@ -153,7 +143,7 @@ def bidding_strategy(start_price, lvl_commitment):
     else:
         return bidding_factors*start_price
 
-def update_bidding_factors(bidding_factors, bids, market_price, out, winner_id): #Updates the bidding factors
+def update_bidding_factors(bidding_factors, bids, market_price, out, winner_id, n, bid_dec_factors, bid_inc_factors): #Updates the bidding factors
     ids = numpy.arange(0, n)
     if len(out) > 0: #if there have not been any bids yet, this is not neccesary
         numpy.delete(ids,out)
@@ -171,16 +161,16 @@ def find_nearest_less_than(search_val, input_data):
     idx = diff.argmax()
     return idx, input_data[idx]
 
-def plot_market_price(mp):
+def plot_market_price(mp, r):
     plt.figure()
     plt.title("Market Price over "+str(r)+" rounds.")
     rounds = numpy.linspace(0, r, r)
     plt.plot(rounds, mp[:])
     plt.show()
 
-def plot_lines(factors):
+def plot_lines(factors, lvl_commitment, k, n, r, e):
     plt.figure()
-    if lvl_commitement:
+    if lvl_commitment:
         plt.title("Profits by "+str(n)+" agents w/"+str(k)+" sellers over "+str(r)+" rounds. pen = "+str(e)+" (LVLD COM)")
     else:
         plt.title("Profits by " + str(n) + " agents w/" + str(k) + " sellers over " + str(r) + " rounds. pen = "+str(e)+" (PURE AUC)")
@@ -189,4 +179,9 @@ def plot_lines(factors):
         plt.plot(rounds,factors[i,:])
     plt.show()
 
-vickrey_auction()
+
+print("k = num of Sellers, n = num of Buyers, r = num of Rounds, smax = Max starting price, e = penalty factor, lvl = True/False use leveled commitment")
+print("[int int int float float bool  // Example input: 3 4 100 1. 0.4 True ")
+var = input("Please enter input: k n r smax e lvl \n").split(' ')
+
+vickrey_auction(int(var[0]),int(var[1]),int(var[2]),float(var[3]),float(var[4]),bool(var[5]))
